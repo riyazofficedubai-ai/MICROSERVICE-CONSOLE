@@ -1,0 +1,2 @@
+NEXT_PUBLIC_PRODUCT_API_URL=http://localhost:3001
+NEXT_PUBLIC_ORDER_API_URL=http://localhost:3002

@@ -1,0 +1,142 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ProductsService } from './products.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductCategory, ProductStatus } from './entities/product.entity';
+
+@ApiTags('products')
+@Controller('products')
+export class ProductsController {
+  constructor(private readonly productsService: ProductsService) {}
+
+  // ─── REST Endpoints ──────────────────────────────────────────────────────────
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new product' })
+  @ApiResponse({ status: 201, description: 'Product created successfully' })
+  @ApiResponse({ status: 409, description: 'SKU already exists' })
+  async create(@Body() dto: CreateProductDto) {
+    const product = await this.productsService.create(dto);
+    return {
+      success: true,
+      message: 'Product created successfully',
+      data: product,
+    };
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all products with optional filters' })
+  @ApiQuery({ name: 'category', enum: ProductCategory, required: false })
+  @ApiQuery({ name: 'status', enum: ProductStatus, required: false })
+  @ApiQuery({ name: 'minPrice', type: Number, required: false })
+  @ApiQuery({ name: 'maxPrice', type: Number, required: false })
+  @ApiQuery({ name: 'search', type: String, required: false })
+  async findAll(
+    @Query('category') category?: string,
+    @Query('status') status?: string,
+    @Query('minPrice') minPrice?: number,
+    @Query('maxPrice') maxPrice?: number,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.productsService.findAll({
+      category,
+      status,
+      minPrice: minPrice ? +minPrice : undefined,
+      maxPrice: maxPrice ? +maxPrice : undefined,
+      search,
+    });
+    return { success: true, ...result };
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get product statistics' })
+  async getStats() {
+    const stats = await this.productsService.getStats();
+    return { success: true, data: stats };
+  }
+
+  @Get('sku/:sku')
+  @ApiOperation({ summary: 'Find product by SKU' })
+  async findBySku(@Param('sku') sku: string) {
+    const product = await this.productsService.findBySku(sku);
+    return { success: true, data: product };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a product by ID' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async findOne(@Param('id') id: string) {
+    const product = await this.productsService.findOne(id);
+    return { success: true, data: product };
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a product' })
+  async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+    const product = await this.productsService.update(id, dto);
+    return {
+      success: true,
+      message: 'Product updated successfully',
+      data: product,
+    };
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a product' })
+  async remove(@Param('id') id: string) {
+    return this.productsService.remove(id);
+  }
+
+  // ─── Microservice Message Handlers (TCP) ─────────────────────────────────────
+  // These handle messages from the Order Service
+
+  @MessagePattern({ cmd: 'get_product' })
+  async getProduct(@Payload() data: { id: string }) {
+    return this.productsService.findOne(data.id);
+  }
+
+  @MessagePattern({ cmd: 'get_products_by_ids' })
+  async getProductsByIds(@Payload() data: { ids: string[] }) {
+    return this.productsService.findByIds(data.ids);
+  }
+
+  @MessagePattern({ cmd: 'check_stock' })
+  async checkStock(@Payload() data: { id: string; quantity: number }) {
+    const product = await this.productsService.findOne(data.id);
+    return {
+      available: product.stock >= data.quantity,
+      stock: product.stock,
+      product,
+    };
+  }
+
+  @MessagePattern({ cmd: 'decrement_stock' })
+  async decrementStock(@Payload() data: { id: string; quantity: number }) {
+    return this.productsService.decrementStock(data.id, data.quantity);
+  }
+
+  @MessagePattern({ cmd: 'increment_stock' })
+  async incrementStock(@Payload() data: { id: string; quantity: number }) {
+    return this.productsService.incrementStock(data.id, data.quantity);
+  }
+
+  @MessagePattern({ cmd: 'get_all_products' })
+  async getAllProducts() {
+    const result = await this.productsService.findAll();
+    return result.data;
+  }
+}

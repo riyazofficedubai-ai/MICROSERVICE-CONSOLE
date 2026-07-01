@@ -1,0 +1,241 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Stack,
+  Chip,
+  Grid,
+  TextField,
+  MenuItem,
+  Button,
+  Alert,
+  CircularProgress,
+  Divider,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import { productsService, ProductPayload } from '@/lib/api';
+import { monoFont } from '@/lib/theme';
+
+const CATEGORIES = ['ELECTRONICS', 'CLOTHING', 'FOOD', 'BOOKS', 'FURNITURE', 'SPORTS', 'OTHER'];
+
+const emptyForm: ProductPayload = {
+  name: '',
+  description: '',
+  price: 0,
+  stock: 0,
+  sku: '',
+  category: 'ELECTRONICS',
+};
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<ProductPayload>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await productsService.list();
+      setProducts(res.data || []);
+    } catch (err: any) {
+      setError(
+        'Could not reach Product Service. Make sure it is running on http://localhost:3001',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await productsService.create({
+        ...form,
+        price: Number(form.price),
+        stock: Number(form.stock),
+      });
+      setForm(emptyForm);
+      setSuccessMsg('Product created successfully.');
+      setTimeout(() => setSuccessMsg(null), 3000);
+      loadProducts();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to create product.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await productsService.remove(id);
+      loadProducts();
+    } catch {
+      setError('Failed to delete product.');
+    }
+  };
+
+  return (
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: { xs: 5, md: 8 } }}>
+      <Container maxWidth="lg">
+        <Stack spacing={1} sx={{ mb: 4 }}>
+          <Chip
+            label="PRODUCT SERVICE · PORT 3001"
+            size="small"
+            sx={{ alignSelf: 'flex-start', bgcolor: 'primary.main', color: 'white', fontFamily: monoFont }}
+          />
+          <Typography variant="h3" sx={{ fontSize: { xs: '1.75rem', md: '2.25rem' } }}>
+            Products
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Products created here are what the Order Service validates stock against.
+          </Typography>
+        </Stack>
+
+        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+        {successMsg && <Alert severity="success" sx={{ mb: 3 }}>{successMsg}</Alert>}
+
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={5}>
+            <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', position: 'sticky', top: 88 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                New Product
+              </Typography>
+              <Box component="form" onSubmit={handleCreate}>
+                <Stack spacing={2.5}>
+                  <TextField
+                    label="Name"
+                    required
+                    fullWidth
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                  <TextField
+                    label="Description"
+                    required
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  />
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      label="Price (USD)"
+                      type="number"
+                      required
+                      fullWidth
+                      inputProps={{ step: '0.01', min: 0 }}
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                    />
+                    <TextField
+                      label="Stock"
+                      type="number"
+                      required
+                      fullWidth
+                      inputProps={{ min: 0 }}
+                      value={form.stock}
+                      onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                    />
+                  </Stack>
+                  <TextField
+                    label="SKU"
+                    required
+                    fullWidth
+                    placeholder="WHP-001-BLK"
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                  />
+                  <TextField
+                    select
+                    label="Category"
+                    fullWidth
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  >
+                    {CATEGORIES.map((c) => (
+                      <MenuItem key={c} value={c}>
+                        {c}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    startIcon={<AddIcon />}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Creating…' : 'Create Product'}
+                  </Button>
+                </Stack>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={7}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Inventory ({products.length})
+            </Typography>
+            {loading ? (
+              <Stack alignItems="center" sx={{ py: 6 }}>
+                <CircularProgress />
+              </Stack>
+            ) : products.length === 0 ? (
+              <Paper elevation={0} sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider' }}>
+                <Typography color="text.secondary">No products yet. Create one to get started.</Typography>
+              </Paper>
+            ) : (
+              <Stack spacing={2}>
+                {products.map((p) => (
+                  <Paper key={p.id} elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                      <Box sx={{ flex: 1 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {p.name}
+                          </Typography>
+                          <Chip
+                            label={p.status}
+                            size="small"
+                            color={p.status === 'ACTIVE' ? 'success' : 'warning'}
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          {p.description}
+                        </Typography>
+                        <Stack direction="row" spacing={2} sx={{ fontFamily: monoFont, fontSize: '0.8rem', color: 'text.secondary' }}>
+                          <span>SKU: {p.sku}</span>
+                          <span>Stock: {p.stock}</span>
+                          <span>${p.price}</span>
+                        </Stack>
+                      </Box>
+                      <Button size="small" color="error" onClick={() => handleDelete(p.id)}>
+                        Delete
+                      </Button>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
+  );
+}

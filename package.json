@@ -1,0 +1,22 @@
+import type { Metadata } from 'next';
+import { ThemeRegistry } from '@/components/ThemeRegistry';
+import { NavBar } from '@/components/NavBar';
+
+export const metadata: Metadata = {
+  title: 'Manifest — Product & Order Console',
+  description:
+    'A dynamic, JSON-driven signup form plus a console for managing products and orders across two NestJS microservices.',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body style={{ margin: 0, backgroundColor: '#F6F5F2' }}>
+        <ThemeRegistry>
+          <NavBar />
+          {children}
+        </ThemeRegistry>
+      </body>
+    </html>
+  );
+}

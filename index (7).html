@@ -1,0 +1,66 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Stack,
+  Chip,
+  ToggleButtonGroup,
+  ToggleButton,
+} from '@mui/material';
+import { DynamicForm } from '@/components/DynamicForm';
+import { FieldType, FormSchema } from '@/types/form-schema';
+import { monoFont } from '@/lib/theme';
+
+const baseField = {
+  id: 99,
+  name: 'Gender',
+  defaultValue: '1',
+  required: true,
+  listOfValues1: ['Male', 'Female', 'Others'],
+};
+
+export default function SchemaDemoPage() {
+  const [fieldType, setFieldType] = useState<FieldType>('LIST');
+
+  const demoSchema: FormSchema = {
+    data: [{ ...baseField, fieldType }],
+  };
+
+  return (
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: { xs: 5, md: 8 } }}>
+      <Container maxWidth="sm">
+        <Stack spacing={1} sx={{ mb: 4 }}>
+          <Chip
+            label="LIVE SCHEMA SWAP"
+            size="small"
+            sx={{ alignSelf: 'flex-start', bgcolor: 'secondary.main', fontFamily: monoFont }}
+          />
+          <Typography variant="h4">Same field, different fieldType</Typography>
+          <Typography variant="body2" color="text.secondary">
+            This is the exact same field definition (label, options, required flag) — only{' '}
+            <code>fieldType</code> changes below. The form re-renders the right control with no
+            other code change.
+          </Typography>
+        </Stack>
+
+        <ToggleButtonGroup
+          value={fieldType}
+          exclusive
+          onChange={(_, val) => val && setFieldType(val)}
+          sx={{ mb: 3 }}
+        >
+          <ToggleButton value="LIST">LIST (dropdown)</ToggleButton>
+          <ToggleButton value="RADIO">RADIO (buttons)</ToggleButton>
+        </ToggleButtonGroup>
+
+        <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'divider' }}>
+          <DynamicForm schema={demoSchema} onSubmit={(v) => alert(JSON.stringify(v, null, 2))} />
+        </Paper>
+      </Container>
+    </Box>
+  );
+}
